@@ -144,12 +144,8 @@ extension AppDelegate {
     removeDragTimerPanel()
     removeDragLine()
     if dragTimeInterval > 0 {
-      if UserDefaults.standard.bool(forKey: "allowCustomNames") {
-        pendingTimerData = (startTime: Date(), duration: dragTimeInterval)
-        showNameInputField()
-      } else {
-        startOneTimeTimer(name: nil)
-      }
+      pendingTimerData = (startTime: Date(), duration: dragTimeInterval)
+      showNameInputField()
     } else if maxDelta < SecondThreshold {
       // Plain click without a drag: open the menu, as before.
       DispatchQueue.main.async { self.showStatusMenu() }
