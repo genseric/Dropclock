@@ -1,9 +1,18 @@
 import AppKit
 import SwiftUI
 
+// Borderless panels refuse key status by default; the text field needs it.
+private class KeyablePanel: NSPanel {
+  override var canBecomeKey: Bool { true }
+}
+
 class NameInputPanel: NSObject {
   private var window: NSPanel?
   private var textField: NSTextField?
+  private var countdownLabel: NSTextField?
+  private var countdownTimer: Timer?
+  private var remainingSeconds = 10
+  private var isFinished = false
   private weak var delegate: NameInputPanelDelegate?
 
   init(delegate: NameInputPanelDelegate) {
@@ -11,17 +20,19 @@ class NameInputPanel: NSObject {
   }
 
   func show(at point: NSPoint) {
-    let panel = NSPanel(
-      contentRect: NSRect(x: 0, y: 0, width: 160, height: 105),
-      styleMask: [.titled, .fullSizeContentView],
+    // Height fits label + field + buttons: 8+8+17+8+24+8+24+8+8.
+    let panel = KeyablePanel(
+      contentRect: NSRect(x: 0, y: 0, width: 160, height: 116),
+      styleMask: [.borderless, .nonactivatingPanel],
       backing: .buffered,
       defer: false
     )
 
     panel.isFloatingPanel = true
     panel.level = .floating
-    panel.titlebarAppearsTransparent = true
-    panel.titleVisibility = .hidden
+    panel.isOpaque = false
+    panel.backgroundColor = .clear
+    panel.hasShadow = true
     panel.isMovableByWindowBackground = true
 
     let blurView = NSVisualEffectView(frame: panel.contentView!.bounds)
@@ -29,13 +40,15 @@ class NameInputPanel: NSObject {
     blurView.state = .active
     blurView.wantsLayer = true
     blurView.layer?.cornerRadius = 8
+    blurView.layer?.masksToBounds = true
 
     let stackView = NSStackView(frame: blurView.bounds)
     stackView.orientation = .vertical
     stackView.spacing = 8
     stackView.edgeInsets = NSEdgeInsets(top: 8, left: 8, bottom: 8, right: 8)
 
-    let label = NSTextField(labelWithString: "Timer Name")
+    // Shows the seconds left before the timer starts with whatever was typed.
+    let label = NSTextField(labelWithString: countdownText)
     label.font = NSFont.systemFont(ofSize: 13, weight: .medium)
     label.textColor = .secondaryLabelColor
     label.alignment = .left
@@ -117,21 +130,51 @@ class NameInputPanel: NSObject {
     panel.makeKeyAndOrderFront(nil)
     panel.level = .floating
 
+    // Non-activating panel: takes typing without pulling focus from the front app.
     DispatchQueue.main.async {
-      NSApp.activate(ignoringOtherApps: true)
       panel.makeFirstResponder(textField)
     }
 
     self.window = panel
     self.textField = textField
+    self.countdownLabel = label
+
+    // Clicking anywhere outside the panel starts the timer without a name.
+    NotificationCenter.default.addObserver(
+      self, selector: #selector(panelDidResignKey(_:)),
+      name: NSWindow.didResignKeyNotification, object: panel)
+
+    let timer = Timer(timeInterval: 1.0, repeats: true) { [weak self] _ in
+      self?.countdownTick()
+    }
+    RunLoop.main.add(timer, forMode: .common)
+    countdownTimer = timer
+  }
+
+  private var countdownText: String { "countdown: \(remainingSeconds) secs" }
+
+  private func countdownTick() {
+    remainingSeconds -= 1
+    countdownLabel?.stringValue = countdownText
+    if remainingSeconds <= 0 {
+      confirmNameInput()
+    }
+  }
+
+  @objc private func panelDidResignKey(_ notification: Notification) {
+    guard !isFinished else { return }
+    cleanup()
+    delegate?.nameInputPanelDidConfirm(name: nil)
   }
 
   @objc private func cancelNameInput() {
+    guard !isFinished else { return }
     cleanup()
     delegate?.nameInputPanelDidCancel()
   }
 
   @objc private func confirmNameInput() {
+    guard !isFinished else { return }
     let timerName =
       textField?.stringValue.isEmpty ?? true
       ? nil
@@ -141,9 +184,14 @@ class NameInputPanel: NSObject {
   }
 
   func cleanup() {
+    isFinished = true
+    countdownTimer?.invalidate()
+    countdownTimer = nil
+    NotificationCenter.default.removeObserver(self)
     window?.close()
     window = nil
     textField = nil
+    countdownLabel = nil
   }
 }
 

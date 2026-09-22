@@ -9,23 +9,16 @@ class DragLineView: NSView {
     let linePath = NSBezierPath()
     linePath.move(to: startPoint)
     linePath.line(to: endPoint)
-    if UserDefaults.standard.bool(forKey: "changeRubberbandColor") {
-      if let colorData = UserDefaults.standard.data(forKey: "dragLineColor"),
-        let color = try? NSKeyedUnarchiver.unarchivedObject(
-          ofClass: NSColor.self, from: colorData)
-      {
-        color.setStroke()
-      } else {
-        NSColor.labelColor.setStroke()
-      }
-    } else {
-      NSColor.labelColor.setStroke()
-    }
-
-    linePath.lineWidth = 3.0
     linePath.lineCapStyle = .round
+
+    // White halo under a dark core keeps the line visible on light and dark backgrounds.
+    NSColor.white.setStroke()
+    linePath.lineWidth = 5.0
     linePath.stroke()
 
+    NSColor.black.setStroke()
+    linePath.lineWidth = 3.0
+    linePath.stroke()
   }
 
   func update(start: NSPoint, end: NSPoint) {

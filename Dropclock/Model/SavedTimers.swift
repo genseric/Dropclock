@@ -5,5 +5,4 @@ struct SavedTimer: Codable {
   let name: String?
   let startTime: Date
   let duration: TimeInterval
-  let reminderId: String?
 }

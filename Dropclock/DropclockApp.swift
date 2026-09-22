@@ -1,5 +1,4 @@
 import AppKit
-import EventKit
 import SwiftUI
 import UserNotifications
 
@@ -27,6 +26,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   internal var dragStartLocation: CGPoint?
   internal var dragLineView: DragLineView?
   internal var dragLineWindow: NSWindow?
+  internal var dragPollTimer: Timer?
+  internal var statusMenu = NSMenu()
   internal let MinuteThreshold: CGFloat = 130
   internal let ThirtySecondThreshold: CGFloat = 80
   internal let SecondThreshold: CGFloat = 50
@@ -36,7 +37,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   private var activeTimers:
   [(
     id: UUID, name: String?, startTime: Date, duration: TimeInterval,
-    timer: Timer, reminderId: String?
+    timer: Timer
   )] = []
   internal var pendingTimerData: (startTime: Date, duration: TimeInterval)?
   
@@ -89,8 +90,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         id: timer.id.uuidString,
         name: timer.name,
         startTime: timer.startTime,
-        duration: timer.duration,
-        reminderId: timer.reminderId
+        duration: timer.duration
       )
     }
     
@@ -131,8 +131,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
               name: savedTimer.name,
               startTime: savedTimer.startTime,
               duration: savedTimer.duration,
-              timer: timerObj,
-              reminderId: savedTimer.reminderId
+              timer: timerObj
             ))
         } else {
           let timerObj = Timer.scheduledTimer(
@@ -147,10 +146,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
               name: savedTimer.name,
               startTime: savedTimer.startTime,
               duration: savedTimer.duration,
-              timer: timerObj,
-              reminderId: savedTimer.reminderId
+              timer: timerObj
             ))
-          
+
           print(
             "Timer \(timerId) expired while app was not running. Triggering notification..."
           )
@@ -164,14 +162,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   }
   
   @objc private func menuWillOpen(_ notification: Notification) {
-    guard let menu = notification.object as? NSMenu, menu == statusItem?.menu
+    guard let menu = notification.object as? NSMenu, menu == statusMenu
     else { return }
     isMenuOpen = true
     startMenuRefreshTimer()
   }
-  
+
   @objc private func menuWillClose(_ notification: Notification) {
-    guard let menu = notification.object as? NSMenu, menu == statusItem?.menu
+    guard let menu = notification.object as? NSMenu, menu == statusMenu
     else { return }
     isMenuOpen = false
     stopMenuRefreshTimer()
@@ -208,130 +206,53 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   }
   
   internal func updateStatusIcon() {
-    if UserDefaults.standard.bool(forKey: "showNextTimerInMenuBar") && activeTimers.count > 0 {
-      
+    if activeTimers.count > 0 {
       let nextTimer = activeTimers.min { timer1, timer2 in
         let endTime1 = timer1.startTime.addingTimeInterval(timer1.duration)
         let endTime2 = timer2.startTime.addingTimeInterval(timer2.duration)
         return endTime1 < endTime2
       }
-      
+
       if let timer = nextTimer {
         let now = Date()
         let endTime = timer.startTime.addingTimeInterval(timer.duration)
         let remainingTime = endTime.timeIntervalSince(now)
-        
+
         if remainingTime > 0 {
-          let formattedTime = formatTimeInterval(remainingTime)
+          let formattedTime = formatCompactInterval(remainingTime)
           let displayName = timer.name ?? "Timer"
           let truncatedName = displayName.count > 15
           ? String(displayName.prefix(12)) + "…"
           : displayName
           let displayText = "\(truncatedName): \(formattedTime)"
-          
+
           statusItem?.button?.image = nil
           statusItem?.button?.title = displayText
-          
+
           if let button = statusItem?.button {
             button.font = NSFont.systemFont(ofSize: 13, weight: .medium)
           }
-          
+
           return
         }
       }
     }
-    
-    if UserDefaults.standard.bool(forKey: "useCustomMenuBarSymbol") || UserDefaults.standard.bool(forKey: "useAlternativeMenuBarIcon") {
-      statusItem?.button?.title = ""
-      let symbolName: String
-      if UserDefaults.standard.bool(forKey: "useCustomMenuBarSymbol") && (UserDefaults.standard.string(forKey: "customMenuBarSymbol")) != "" {
-        symbolName = UserDefaults.standard.string(forKey: "customMenuBarSymbol") ?? "arrow.circlepath"
-      }
-      else {
-        symbolName = "paperplane.circle"
-      }
-      if let symbolImage = NSImage(
-        systemSymbolName: symbolName,
-        accessibilityDescription: nil)
-      {
-        symbolImage.size = NSSize(width: 18, height: 18)
-        statusItem?.button?.image = symbolImage
-      } else {
-        print("SF Symbol not found.")
-      }
+
+    statusItem?.button?.title = ""
+    let symbolName: String
+    if #available(macOS 15.3, *) {
+      symbolName = "clock.arrow.trianglehead.counterclockwise.rotate.90"
+    } else {
+      symbolName = "clock.arrow.circlepath"
     }
-    else if UserDefaults.standard.bool(forKey: "useCustomMenuBarIcon") {
-      statusItem?.button?.image = nil
-      statusItem?.button?.title = UserDefaults.standard.string(forKey: "customMenuBarWord") ?? ""
-      if let button = statusItem?.button {
-        button.font = NSFont.systemFont(ofSize: 13, weight: .medium)
-      }
-    }
-    else {
-      if activeTimers.count > 0 {
-        let symbolName: String
-        if #available(macOS 15.3, *) {
-          symbolName = "arrow.trianglehead.counterclockwise.rotate.90"
-        } else {
-          symbolName = "arrow.circlepath"
-        }
-        
-        if let symbolImage = NSImage(
-          systemSymbolName: symbolName,
-          accessibilityDescription: nil)
-        {
-          let symbolSize = NSSize(width: 16, height: 16)
-          symbolImage.size = symbolSize
-          symbolImage.isTemplate = true  // Ensure template image
-          
-          let text = activeTimers.count > 9 ? "+" : "\(activeTimers.count)"
-          let attributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: 9, weight: .medium)
-          ]
-          let attributedString = NSAttributedString(
-            string: text, attributes: attributes)
-          let textSize = attributedString.size()
-          
-          let combinedImage = NSImage(size: symbolSize)
-          combinedImage.lockFocus()
-          
-          symbolImage.draw(
-            at: NSPoint.zero, from: NSRect(origin: .zero, size: symbolSize),
-            operation: .sourceOver, fraction: 1)
-          
-          let textPosition = NSPoint(
-            x: (symbolSize.width - textSize.width) / 2,
-            y: (symbolSize.height - textSize.height) / 2)
-          attributedString.draw(at: textPosition)  // Draw attributed string directly
-          
-          combinedImage.unlockFocus()
-          combinedImage.isTemplate = true  // Ensure template image
-          
-          statusItem?.button?.image = combinedImage
-          statusItem?.button?.title = ""
-        } else {
-          print("SF Symbol not found.")
-          statusItem?.button?.title = "\(activeTimers.count)"
-          statusItem?.button?.image = nil
-        }
-      } else {
-        statusItem?.button?.title = ""
-        let symbolName: String
-        if #available(macOS 15.3, *) {
-          symbolName = "clock.arrow.trianglehead.counterclockwise.rotate.90"
-        } else {
-          symbolName = "clock.arrow.circlepath"
-        }
-        if let symbolImage = NSImage(
-          systemSymbolName: symbolName,
-          accessibilityDescription: nil)
-        {
-          symbolImage.size = NSSize(width: 18, height: 18)
-          statusItem?.button?.image = symbolImage
-        } else {
-          print("SF Symbol not found.")
-        }
-      }
+    if let symbolImage = NSImage(
+      systemSymbolName: symbolName,
+      accessibilityDescription: nil)
+    {
+      symbolImage.size = NSSize(width: 18, height: 18)
+      statusItem?.button?.image = symbolImage
+    } else {
+      print("SF Symbol not found.")
     }
   }
   
@@ -354,16 +275,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   
   private func startStatusIconUpdateTimer() {
     statusIconUpdateTimer?.invalidate()
-    if UserDefaults.standard.bool(forKey: "showNextTimerInMenuBar") {
-      statusIconUpdateTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-        self?.baseTime = Date()
-        self?.updateStatusIcon()
-      }
-    } else {
-      statusIconUpdateTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
-        self?.baseTime = Date()
-        self?.updateStatusIcon()
-      }
+    statusIconUpdateTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+      self?.baseTime = Date()
+      self?.updateStatusIcon()
     }
   }
   
@@ -372,42 +286,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         ?? (dragTimeInterval > 0 ? (Date(), dragTimeInterval) : nil)
     {
       let timerId = UUID()
-      var reminderId: String? = nil
-      
+
       let timerObj = Timer.scheduledTimer(
         withTimeInterval: timerData.duration, repeats: false
       ) { [weak self] _ in
         self?.timerFinished(id: timerId)
       }
-      
-      if UserDefaults.standard.bool(forKey: "allowReminders") {
-        if !UserDefaults.standard.bool(forKey: "ignoreShortTimers")
-            || timerData.duration
-            > (UserDefaults.standard.double(
-              forKey: "shortTimerThresholdMinutes") * 60)
-        {
-          let reminderTitle = name ?? "Timer \(activeTimers.count + 1)"
-          let reminderNotes =
-          "Your timer for \(Int(timerData.duration / 60)) minute(s) has finished."
-          let reminderTime = Date().addingTimeInterval(timerData.duration)
-          
-          do {
-            reminderId = try RemindersManager.shared.createReminder(
-              title: reminderTitle, notes: reminderNotes, dueDate: reminderTime)
-          } catch {
-            print("Failed to create reminder: \(error.localizedDescription)")
-          }
-        }
-      }
-      
+
       activeTimers.append(
         (
           id: timerId,
           name: name,
           startTime: timerData.startTime,
           duration: timerData.duration,
-          timer: timerObj,
-          reminderId: reminderId
+          timer: timerObj
         ))
       
       updateStatusIcon()
@@ -451,20 +343,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     let timerToRemove = activeTimers[timerIndex]
-    
-    if UserDefaults.standard.bool(forKey: "deleteReminders") {
-      if let reminderId = timerToRemove.reminderId {
-        Task {
-          do {
-            try await RemindersManager.shared.deleteReminder(
-              withIdentifier: reminderId)
-          } catch {
-            print("Failed to delete reminder: \(error.localizedDescription)")
-          }
-        }
-      }
-    }
-    
+
     timerToRemove.timer.invalidate()
     activeTimers.remove(at: timerIndex)
     SoundManager.shared.stopActiveSound()
@@ -527,9 +406,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       NSMenuItem(
         title: "Quit Dropclock", action: #selector(quit), keyEquivalent: "q"))
     
-    statusItem?.menu = menu
+    statusMenu = menu
   }
-  
+
+  // Menu bar text: "45s" under a minute, else minutes rounded up ("15m", "1h 5m").
+  private func formatCompactInterval(_ timeInterval: TimeInterval) -> String {
+    let seconds = max(0, timeInterval)
+    if seconds < 60 {
+      return "\(Int(seconds.rounded(.up)))s"
+    }
+    let totalMinutes = Int((seconds / 60).rounded(.up))
+    let hours = totalMinutes / 60
+    let minutes = totalMinutes % 60
+    if hours == 0 {
+      return "\(minutes)m"
+    }
+    return minutes == 0 ? "\(hours)h" : "\(hours)h \(minutes)m"
+  }
+
   private func formatTimeInterval(_ timeInterval: TimeInterval) -> String {
     let totalSeconds = Int(max(0, timeInterval))
     let hours = totalSeconds / 3600
