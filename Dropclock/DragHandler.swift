@@ -55,45 +55,20 @@ extension AppDelegate {
       return
     }
 
-    let isCtrlKeyPressed = NSEvent.modifierFlags.contains(.control)
-    let isShiftKeyPressed = NSEvent.modifierFlags.contains(.shift)
-
     // Time Calculation Logic
     var calculatedInterval: TimeInterval = 0
-    if isCtrlKeyPressed
-      && UserDefaults.standard.bool(forKey: "allowFiveMinuteMode")
-    {
-      if maxDelta >= SecondThreshold {
-        let increments = Int((maxDelta - SecondThreshold) / 5) + 1
-        calculatedInterval = TimeInterval(increments * 60 * 5)
-      } else {
-        removeDragTimerPanel()
-        calculatedInterval = 0
-      }
-    } else if isShiftKeyPressed
-      && UserDefaults.standard.bool(forKey: "allowSecondsMode")
-    {
-      if maxDelta >= SecondThreshold {
-        let increments = Int(maxDelta - SecondThreshold) + 1
-        calculatedInterval = TimeInterval(30 + increments)
-      } else {
-        removeDragTimerPanel()
-        calculatedInterval = 0
-      }
+    if maxDelta < SecondThreshold {
+      removeDragTimerPanel()
+      calculatedInterval = 0
+    } else if maxDelta < ThirtySecondThreshold {
+      let increments = Int(maxDelta - SecondThreshold) + 1
+      calculatedInterval = TimeInterval(30 + increments)
+    } else if maxDelta < MinuteThreshold {
+      let increments = Int((maxDelta - ThirtySecondThreshold) / 5)
+      calculatedInterval = TimeInterval(60 + increments * 30)
     } else {
-      if maxDelta < SecondThreshold {
-        removeDragTimerPanel()
-        calculatedInterval = 0
-      } else if maxDelta < ThirtySecondThreshold {
-        let increments = Int(maxDelta - SecondThreshold) + 1
-        calculatedInterval = TimeInterval(30 + increments)
-      } else if maxDelta < MinuteThreshold {
-        let increments = Int((maxDelta - ThirtySecondThreshold) / 5)
-        calculatedInterval = TimeInterval(60 + increments * 30)
-      } else {
-        let increments = Int((maxDelta - MinuteThreshold) / 5)
-        calculatedInterval = TimeInterval(300 + increments * 60)
-      }
+      let increments = Int((maxDelta - MinuteThreshold) / 5)
+      calculatedInterval = TimeInterval(300 + increments * 60)
     }
 
     dragTimeInterval = calculatedInterval
@@ -107,9 +82,7 @@ extension AppDelegate {
       let seconds = Int(calculatedInterval) - minutes * 60
       displayText = "\(minutes) min \(seconds) sec"
     } else {
-      if calculatedInterval <= 3600
-        || UserDefaults.standard.bool(forKey: "viewAsMinutes")
-      {
+      if calculatedInterval <= 3600 {
         let minutes = Int(calculatedInterval) / 60
         displayText = "\(minutes) min"
       } else {
@@ -134,8 +107,7 @@ extension AppDelegate {
 
     // Only draw the line once the cursor has left the menu bar.
     if dragLineView == nil, let menuBarBottom = button.window?.frame.minY,
-      mouseLoc.y < menuBarBottom,
-      UserDefaults.standard.bool(forKey: "showDragIndicator")
+      mouseLoc.y < menuBarBottom
     {
       createDragLine(button: button)
     }

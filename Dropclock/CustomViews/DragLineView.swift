@@ -11,22 +11,12 @@ class DragLineView: NSView {
     linePath.line(to: endPoint)
     linePath.lineCapStyle = .round
 
-    var coreColor = NSColor.black
-    if UserDefaults.standard.bool(forKey: "changeRubberbandColor") {
-      if let colorData = UserDefaults.standard.data(forKey: "dragLineColor"),
-        let color = try? NSKeyedUnarchiver.unarchivedObject(
-          ofClass: NSColor.self, from: colorData)
-      {
-        coreColor = color
-      }
-    }
-
     // White halo under a dark core keeps the line visible on light and dark backgrounds.
     NSColor.white.setStroke()
     linePath.lineWidth = 5.0
     linePath.stroke()
 
-    coreColor.setStroke()
+    NSColor.black.setStroke()
     linePath.lineWidth = 3.0
     linePath.stroke()
   }

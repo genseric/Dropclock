@@ -1,4 +1,3 @@
-import EventKit
 import SwiftUI
 
 class PreferencesWindowController: NSWindowController {

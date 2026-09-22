@@ -1,4 +1,3 @@
-import EventKit
 import SwiftUI
 import Combine
 import UniformTypeIdentifiers
@@ -25,7 +24,6 @@ fileprivate extension View {
 
 enum PreferenceTab {
   case general
-  case reminders
   case timers
 }
 
@@ -41,10 +39,6 @@ struct PreferencesView: View {
         ForEach(
           [
             (tab: PreferenceTab.general, icon: "gearshape", label: "General"),
-            (
-              tab: PreferenceTab.reminders, icon: "bell.fill",
-              label: "Reminders"
-            ),
             (tab: PreferenceTab.timers, icon: "timer", label: "Timers"),
           ], id: \.tab
         ) { tabInfo in
@@ -92,8 +86,6 @@ struct PreferencesView: View {
           switch selectedTab {
           case .general:
             generalSettingsView
-          case .reminders:
-            reminderSettingsView
           case .timers:
             timerSettingsView
           }
@@ -117,13 +109,6 @@ struct PreferencesView: View {
         print("File import failed: \(error)")
       }
     }
-    .onChangeCompat(viewModel.allowReminders, publisher: viewModel.$allowReminders) { newValue in
-      if newValue {
-        Task {
-          await viewModel.ensureReminderAccess()
-        }
-      }
-    }
   }
 
   var generalSettingsView: some View {
@@ -141,250 +126,14 @@ struct PreferencesView: View {
               viewModel.savePreferences()
             }
         }
-        SettingsRow(
-          title: "Show next timer in menu bar",
-          helpText: "Shows the next timer in the menu bar. Replaces Icon"
-        ) {
-          Toggle("", isOn: $viewModel.showNextTimerInMenuBar)
-            .toggleStyle(SwitchToggleStyle())
-            .labelsHidden()
-            .frame(width: 40)
-            .onChangeCompat(viewModel.showNextTimerInMenuBar, publisher: viewModel.$showNextTimerInMenuBar) { _ in
-              viewModel.savePreferences()
-            }
-        }
-        SettingsRow(
-          title: "Alternative Menu Bar Icon",
-          helpText: "Changes the menu bar icon to a different style."
-        ) {
-          Toggle("", isOn: $viewModel.useAlternativeMenuBarIcon)
-            .toggleStyle(SwitchToggleStyle())
-            .labelsHidden()
-            .frame(width: 40)
-            .onChangeCompat(viewModel.useAlternativeMenuBarIcon, publisher: viewModel.$useAlternativeMenuBarIcon) { _ in
-              viewModel.savePreferences()
-            }
-        }
-        SettingsRow(
-          title: "Custom Menu Bar Text",
-          helpText: "Changes the menu bar icon to text."
-        ) {
-          Toggle("", isOn: $viewModel.useCustomMenuBarIcon)
-            .toggleStyle(SwitchToggleStyle())
-            .labelsHidden()
-            .frame(width: 40)
-            .onChangeCompat(viewModel.useCustomMenuBarIcon, publisher: viewModel.$useCustomMenuBarIcon) { _ in
-              viewModel.savePreferences()
-            }
-        }
-        if viewModel.useCustomMenuBarIcon {
-          SettingsRow(
-            title: "Custom Menu Bar Text",
-            helpText: "Enter custom text for the menu bar icon."
-          ) {
-            TextField("Enter text", text: $viewModel.customMenuBarWord)
-              .textFieldStyle(RoundedBorderTextFieldStyle())
-              .frame(width: 100)
-              .onChangeCompat(viewModel.customMenuBarWord, publisher: viewModel.$customMenuBarWord) { _ in
-                viewModel.savePreferences()
-              }
-          }
-        }
-        SettingsRow(
-          title: "Custom Menu Bar Symbol",
-          helpText: "Changes the menu bar icon to a custom SF Symbol."
-        ) {
-          Toggle("", isOn: $viewModel.useCustomMenuBarSymbol)
-            .toggleStyle(SwitchToggleStyle())
-            .labelsHidden()
-            .frame(width: 40)
-            .onChangeCompat(viewModel.useCustomMenuBarSymbol, publisher: viewModel.$useCustomMenuBarSymbol) { _ in
-              viewModel.savePreferences()
-            }
-        }
-        if viewModel.useCustomMenuBarSymbol {
-          SettingsRow(
-            title: "Custom Menu Bar Symbol Name",
-            helpText: "Enter the name of the SF Symbol."
-          ) {
-            TextField("Enter text", text: $viewModel.customMenuBarSymbol)
-              .textFieldStyle(RoundedBorderTextFieldStyle())
-              .frame(width: 100)
-              .onChangeCompat(viewModel.customMenuBarSymbol, publisher: viewModel.$customMenuBarSymbol) { _ in
-                viewModel.savePreferences()
-              }
-          }
-        }
       }
       .padding(.top, 10)
-
-      SettingsSection(title: "View") {
-        SettingsRow(
-          title: "Show time in minutes only",
-          helpText:
-            "When enabled, the time will be shown in minutes only and not be formatet to hours and minutes"
-        ) {
-          Toggle("", isOn: $viewModel.viewAsMinutes)
-            .toggleStyle(SwitchToggleStyle())
-            .labelsHidden()
-            .frame(width: 40)
-            .onChangeCompat(viewModel.viewAsMinutes, publisher: viewModel.$viewAsMinutes) { _ in
-              viewModel.savePreferences()
-            }
-        }
-        SettingsRow(
-          title: "Show Rubberband",
-          helpText:
-            "When enabled, a rubberband will be shown from the menubar icon to the mouse cursor"
-        ) {
-          Toggle("", isOn: $viewModel.showDragIndicator)
-            .toggleStyle(SwitchToggleStyle())
-            .labelsHidden()
-            .frame(width: 40)
-            .onChangeCompat(viewModel.showDragIndicator, publisher: viewModel.$showDragIndicator) { _ in
-              viewModel.savePreferences()
-            }
-        }
-        if viewModel.showDragIndicator {
-          HStack {
-            SettingsRow(
-              title: "Change Rubberband Color",
-              helpText: "When enabled, a rubberband can be manually set"
-            ) {
-              Toggle("", isOn: $viewModel.changeRubberbandColor)
-                .toggleStyle(SwitchToggleStyle())
-                .labelsHidden()
-                .frame(width: 40)
-                .onChangeCompat(viewModel.changeRubberbandColor, publisher: viewModel.$changeRubberbandColor) { _ in
-                  viewModel.savePreferences()
-                }
-            }
-          }
-          if viewModel.changeRubberbandColor {
-            HStack {
-              SettingsRow(
-                title: "Rubberband Color",
-                helpText: "Select the color of the rubberband."
-              ) {
-                ColorPicker("", selection: $viewModel.dragLineColor)
-                  .frame(width: 40, alignment: .trailing)
-              }
-            }
-          }
-        }
-
-      }
-    }
-  }
-
-  var reminderSettingsView: some View {
-    VStack(spacing: 20) {
-      SettingsSection(title: "Reminders") {
-        SettingsRow(
-          title: "Allow Reminders",
-          helpText:
-            "When enabled, Dropclock will create reminders in the Apple Reminders app for each timer created. Reminders will always be rounded to the next minute due to how reminders work."
-        ) {
-          Toggle("", isOn: $viewModel.allowReminders)
-            .toggleStyle(SwitchToggleStyle())
-            .labelsHidden()
-            .frame(width: 40)
-            .onChangeCompat(viewModel.allowReminders, publisher: viewModel.$allowReminders) { _ in
-              viewModel.savePreferences()
-            }
-        }
-
-        Divider()
-
-        SettingsRow(
-          title: "Reminder List",
-          helpText: "Choose the list where reminders will be created."
-        ) {
-          Picker("", selection: $viewModel.selectedList) {
-            ForEach(viewModel.reminderLists, id: \.self) { list in
-              Text(list.title).tag(list as EKCalendar?)
-            }
-          }
-          .pickerStyle(MenuPickerStyle())
-          .frame(width: 140, alignment: .trailing)
-          .disabled(!viewModel.allowReminders)
-          .onChangeCompat(viewModel.$selectedList) { _ in
-            viewModel.savePreferences()
-          }
-        }
-
-        Divider()
-
-        SettingsRow(
-          title: "Delete Reminders",
-          helpText:
-            "When enabled, reminders created by the app will be deleted if their corresponding timer entry is deleted."
-        ) {
-          Toggle("", isOn: $viewModel.deleteReminders)
-            .toggleStyle(SwitchToggleStyle())
-            .labelsHidden()
-            .frame(width: 40)
-            .disabled(!viewModel.allowReminders)
-            .onChangeCompat(viewModel.deleteReminders, publisher: viewModel.$deleteReminders) { _ in
-              viewModel.savePreferences()
-            }
-        }
-
-        Divider()
-
-        SettingsRow(
-          title: "Ignore Short Timers",
-          helpText: "When enabled, short timers will not be created as Reminder"
-        ) {
-          Toggle("", isOn: $viewModel.ignoreShortTimers)
-            .toggleStyle(SwitchToggleStyle())
-            .labelsHidden()
-            .frame(width: 40)
-            .disabled(!viewModel.allowReminders)
-            .onChangeCompat(viewModel.ignoreShortTimers, publisher: viewModel.$ignoreShortTimers) { _ in
-              viewModel.savePreferences()
-            }
-        }
-
-        if viewModel.ignoreShortTimers && viewModel.allowReminders {
-          HStack {
-            Slider(
-              value: $viewModel.shortTimerThresholdMinutes,
-              in: 1...60,
-              step: 1
-            )
-            .frame(width: 250, alignment: .leading)
-            .padding(.bottom, 15)
-            .onChangeCompat(viewModel.shortTimerThresholdMinutes, publisher: viewModel.$shortTimerThresholdMinutes) { _ in
-              viewModel.savePreferences()
-            }
-            Text("\(Int(viewModel.shortTimerThresholdMinutes)) min")
-              .frame(width: 50, alignment: .trailing)
-          }
-        }
-      }
     }
   }
 
   var timerSettingsView: some View {
     VStack(spacing: 20) {
       SettingsSection(title: "Timers") {
-        SettingsRow(
-          title: "Custom Timer Names",
-          helpText:
-            "When enabled, you can enter custom names for your timers while creating them."
-        ) {
-          Toggle("", isOn: $viewModel.allowCustomNames)
-            .toggleStyle(SwitchToggleStyle())
-            .labelsHidden()
-            .frame(width: 40)
-            .onChangeCompat(viewModel.allowCustomNames, publisher: viewModel.$allowCustomNames) { _ in
-              viewModel.savePreferences()
-            }
-        }
-
-        Divider()
-
         SettingsRow(
             title: "Play Alarm Sound",
             helpText:
@@ -460,38 +209,6 @@ struct PreferencesView: View {
               }
             }
           }
-
-          Divider()
-        }
-
-        SettingsRow(
-          title: "Enable 5 Minute Mode",
-          helpText:
-            "When enabled, dragging while CTRL-Key is held down will increase in 5 minute increments."
-        ) {
-          Toggle("", isOn: $viewModel.allowFiveMinuteMode)
-            .toggleStyle(SwitchToggleStyle())
-            .labelsHidden()
-            .frame(width: 40)
-            .onChangeCompat(viewModel.allowFiveMinuteMode, publisher: viewModel.$allowFiveMinuteMode) { _ in
-              viewModel.savePreferences()
-            }
-        }
-
-        Divider()
-
-        SettingsRow(
-          title: "Enable Seconds Mode",
-          helpText:
-            "When enabled, dragging while Shift-Key is held down will only increment in seconds."
-        ) {
-          Toggle("", isOn: $viewModel.allowSecondsMode)
-            .toggleStyle(SwitchToggleStyle())
-            .labelsHidden()
-            .frame(width: 40)
-            .onChangeCompat(viewModel.allowSecondsMode, publisher: viewModel.$allowSecondsMode) { _ in
-              viewModel.savePreferences()
-            }
         }
       }
       .padding(.bottom, 20)
