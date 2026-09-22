@@ -27,6 +27,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   internal var dragStartLocation: CGPoint?
   internal var dragLineView: DragLineView?
   internal var dragLineWindow: NSWindow?
+  internal var dragPollTimer: Timer?
+  internal var statusMenu = NSMenu()
   internal let MinuteThreshold: CGFloat = 130
   internal let ThirtySecondThreshold: CGFloat = 80
   internal let SecondThreshold: CGFloat = 50
@@ -164,14 +166,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   }
   
   @objc private func menuWillOpen(_ notification: Notification) {
-    guard let menu = notification.object as? NSMenu, menu == statusItem?.menu
+    guard let menu = notification.object as? NSMenu, menu == statusMenu
     else { return }
     isMenuOpen = true
     startMenuRefreshTimer()
   }
-  
+
   @objc private func menuWillClose(_ notification: Notification) {
-    guard let menu = notification.object as? NSMenu, menu == statusItem?.menu
+    guard let menu = notification.object as? NSMenu, menu == statusMenu
     else { return }
     isMenuOpen = false
     stopMenuRefreshTimer()
@@ -527,9 +529,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       NSMenuItem(
         title: "Quit Dropclock", action: #selector(quit), keyEquivalent: "q"))
     
-    statusItem?.menu = menu
+    statusMenu = menu
   }
-  
+
   private func formatTimeInterval(_ timeInterval: TimeInterval) -> String {
     let totalSeconds = Int(max(0, timeInterval))
     let hours = totalSeconds / 3600
