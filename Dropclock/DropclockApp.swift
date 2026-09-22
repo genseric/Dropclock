@@ -225,7 +225,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let remainingTime = endTime.timeIntervalSince(now)
         
         if remainingTime > 0 {
-          let formattedTime = formatTimeInterval(remainingTime)
+          let formattedTime = formatCompactInterval(remainingTime)
           let displayName = timer.name ?? "Timer"
           let truncatedName = displayName.count > 15
           ? String(displayName.prefix(12)) + "…"
@@ -531,6 +531,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         title: "Quit Dropclock", action: #selector(quit), keyEquivalent: "q"))
     
     statusMenu = menu
+  }
+
+  // Menu bar text: "45s" under a minute, else minutes rounded up ("15m", "1h 5m").
+  private func formatCompactInterval(_ timeInterval: TimeInterval) -> String {
+    let seconds = max(0, timeInterval)
+    if seconds < 60 {
+      return "\(Int(seconds.rounded(.up)))s"
+    }
+    let totalMinutes = Int((seconds / 60).rounded(.up))
+    let hours = totalMinutes / 60
+    let minutes = totalMinutes % 60
+    if hours == 0 {
+      return "\(minutes)m"
+    }
+    return minutes == 0 ? "\(hours)h" : "\(hours)h \(minutes)m"
   }
 
   private func formatTimeInterval(_ timeInterval: TimeInterval) -> String {

@@ -34,9 +34,6 @@ extension AppDelegate {
   private func beginDrag(button: NSStatusBarButton, at pressLocation: NSPoint) {
     baseTime = Date()
     dragStartLocation = pressLocation
-    if UserDefaults.standard.bool(forKey: "showDragIndicator") {
-      createDragLine(button: button)
-    }
     dragPollTimer?.invalidate()
     let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
       self?.pollDrag(button: button)
@@ -135,6 +132,13 @@ extension AppDelegate {
         atPoint: adjustedOrigin)
     }
 
+    // Only draw the line once the cursor has left the menu bar.
+    if dragLineView == nil, let menuBarBottom = button.window?.frame.minY,
+      mouseLoc.y < menuBarBottom,
+      UserDefaults.standard.bool(forKey: "showDragIndicator")
+    {
+      createDragLine(button: button)
+    }
     updateDragLine(button: button)
   }
 
