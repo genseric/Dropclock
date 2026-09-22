@@ -4,5 +4,7 @@
 <dict>
 	<key>NSRemindersUsageDescription</key>
 	<string>This app needs full access to reminders to add and delete them.</string>
+	<key>NSUserNotificationAlertStyle</key>
+	<string>alert</string>
 </dict>
 </plist>
