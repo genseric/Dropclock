@@ -50,6 +50,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   private var isMenuOpen = false
   
   func applicationDidFinishLaunching(_ notification: Notification) {
+    UserDefaults.standard.register(defaults: ["showDragIndicator": true])
     statusItem = NSStatusBar.system.statusItem(
       withLength: NSStatusItem.variableLength)
     if let button = statusItem?.button {

@@ -34,16 +34,14 @@ class DragTimerPanel {
     panel.backgroundColor = .clear
     panel.hasShadow = true
 
-    let blurView = NSVisualEffectView(frame: panel.contentView!.bounds)
-    blurView.material = .hudWindow
-    blurView.blendingMode = .behindWindow
-    blurView.state = .active
-    blurView.wantsLayer = true
-    blurView.layer?.cornerRadius = 8
-    blurView.layer?.masksToBounds = true
-    blurView.layer?.borderWidth = 1
-    blurView.layer?.borderColor =
-      NSColor.secondaryLabelColor.withAlphaComponent(0.2).cgColor
+    let backgroundView = NSView(frame: panel.contentView!.bounds)
+    backgroundView.wantsLayer = true
+    backgroundView.layer?.backgroundColor = NSColor.black.cgColor
+    backgroundView.layer?.cornerRadius = 8
+    backgroundView.layer?.masksToBounds = true
+    backgroundView.layer?.borderWidth = 1
+    backgroundView.layer?.borderColor =
+      NSColor.white.withAlphaComponent(0.2).cgColor
 
     let stackView = NSStackView()
     stackView.orientation = .vertical
@@ -68,14 +66,14 @@ class DragTimerPanel {
     stackView.addArrangedSubview(timerLabel!)
     stackView.addArrangedSubview(endTimeLabel!)
 
-    blurView.addSubview(stackView)
-    panel.contentView?.addSubview(blurView)
+    backgroundView.addSubview(stackView)
+    panel.contentView?.addSubview(backgroundView)
 
     NSLayoutConstraint.activate([
-      stackView.centerXAnchor.constraint(equalTo: blurView.centerXAnchor),
-      stackView.centerYAnchor.constraint(equalTo: blurView.centerYAnchor),
+      stackView.centerXAnchor.constraint(equalTo: backgroundView.centerXAnchor),
+      stackView.centerYAnchor.constraint(equalTo: backgroundView.centerYAnchor),
       stackView.widthAnchor.constraint(
-        equalTo: blurView.widthAnchor, multiplier: 0.9),
+        equalTo: backgroundView.widthAnchor, multiplier: 0.9),
     ])
 
     panel.orderFront(nil)
